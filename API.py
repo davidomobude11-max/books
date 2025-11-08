@@ -1,43 +1,40 @@
 from flask import Flask, request, jsonify
-
-from flask import Flask
-from flask_sqlalchemy import SQLAlchemy
-
-from Database import BookDB
+from info import db, BookDB  # Import from info.py
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:yourpassword@localhost/Books'
+
+# PostgreSQL connection
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:David2011.@localhost/Books'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-db = SQLAlchemy(app)
+# Initialize database
+db.init_app(app)
+
+Books = [
+    {"id": 1, "title": "A guide to coding"},
+    {"id": 2, "title": "Coding for beginners"}
+]
 
 @app.route("/API/info")
 def home():
-   return {"course": "topic"}
-Books = [{"id": 1, "title" : "A guide to coding"},{"id":2, "title": "Coding for beginners"}]
+    return {"course": "topic"}
 
-
-# Get API
-"""@app.route("/books",methods = ["GET"])
-def books():
-   return jsonify(Books)"""
 
 @app.route('/books', methods=['GET'])
-def get_books():
+def get_books_from_db():
     books = BookDB.query.all()
     return jsonify([{'id': b.id, 'title': b.title, 'author': b.author} for b in books])
 
-db.create_all()
+
+@app.route("/books/<int:book_id>", methods=["GET"])
+def get_book_by_id(book_id):
+    for i in Books:
+        if i["id"] == book_id:
+            return jsonify(i)
+    return jsonify({"error": "book not found"}), 404
 
 
-@app.route("/books/<int:book_id>", methods = ["GET"])
-def get_books(book_id):
-   for i in Books:
-       if i["id"] == book_id:
-           return jsonify(i)
-   return jsonify({"error": "book not found"}),404
-
-
+# --- POST: Add new book (static list for now) ---
 @app.route('/books', methods=['POST'])
 def add_book():
     data = request.get_json()
@@ -45,38 +42,38 @@ def add_book():
     if not title:
         return jsonify({'error': 'Title required'}), 400
     new_book = {
-    'id': len(Books) + 1, # auto-generate
-    'title': title
+        'id': len(Books) + 1,
+        'title': title
     }
-
     Books.append(new_book)
     return jsonify(new_book), 201
 
 
-
-
-#Hello
+# --- PUT: Update existing book ---
 @app.route("/books/<int:book_id>", methods=["PUT"])
 def update_book(book_id):
-   updated_book = request.get_json()
-   for book in Books:
-       if book["id"] == book_id:
-           book.update(updated_book)
-           return jsonify(book)
-   return jsonify({"error": "Book not found"}), 404
+    updated_book = request.get_json()
+    for book in Books:
+        if book["id"] == book_id:
+            book.update(updated_book)
+            return jsonify(book)
+    return jsonify({"error": "Book not found"}), 404
 
 
+# --- DELETE: Remove book ---
 @app.route("/books/<int:book_id>", methods=["DELETE"])
 def delete_book(book_id):
-   for i in Books:
-       if i["id"] == book_id:
-           Books.remove(i)
-           return jsonify({"message": "book deleted successfully"})
-   return jsonify({"error": "book not found"}), 404
+    for i in Books:
+        if i["id"] == book_id:
+            Books.remove(i)
+            return jsonify({"message": "book deleted successfully"})
+    return jsonify({"error": "book not found"}), 404
 
 
+# --- Initialize DB tables only once ---
+with app.app_context():
+    db.create_all()
 
 
 if __name__ == "__main__":
-   # debug=True = auto-reload on code changes, show errors
-   app.run(host="0.0.0.0", port=5000, debug=True)
+    app.run(host="0.0.0.0", port=5000, debug=True)
